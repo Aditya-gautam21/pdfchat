@@ -35,7 +35,7 @@ class Chain:
 
         # Conversational RAG chain
         conversation_chain = ConversationalRetrievalChain(
-                retriever=vectorstore.as_retriever(search_kwargs={"k": 3}),
+                retriever=vectorstore.as_retriever(search_kwargs={"k": 2}),
                 memory=memory,
                 question_generator=question_generator,
                 combine_docs_chain=qa_chain,

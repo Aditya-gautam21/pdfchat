@@ -1,6 +1,7 @@
-from langchain_core.language_models.llms import LLM
-from typing import Optional, List, Any
+import json
 import requests
+from typing import Optional, List, Any
+from langchain_core.language_models.llms import LLM
 
 class OllamaLLM(LLM):
     model: str = "mistral"
@@ -12,26 +13,22 @@ class OllamaLLM(LLM):
             json={
                 "model": self.model,
                 "prompt": prompt,
-                "stream": False
-            }
+                "stream": True
+            },
+            stream=True
         )
 
-        result = response.json()
-
-        # Debug: check response structure
-        if isinstance(result, dict):
-            if "response" in result:
-                return result["response"]
-            elif "output" in result:
-                return result["output"]
-            elif "choices" in result and result["choices"]:
-                return result["choices"][0].get("text", "")
-            else:
-                raise ValueError(f"Unexpected Ollama response keys: {list(result.keys())}")
-        elif isinstance(result, str):
-            return result
-        else:
-            raise TypeError(f"Unexpected result type: {type(result)}")
+        output = ""
+        for line in response.iter_lines():
+            if line:
+                try:
+                    data = json.loads(line.decode("utf-8"))
+                    token = data.get("response", "")
+                    output += token
+                except Exception as e:
+                    print("Streaming error:", e)
+                    continue
+        return output
 
     @property
     def _llm_type(self) -> str:

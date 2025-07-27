@@ -1,20 +1,22 @@
 import os
+import shutil
 import streamlit as st
 from dotenv import load_dotenv
 from chunks import Chunks
 from vectorstore import Vectorstore
-from text import Text
+from data import Data
 from chain import Chain
 from htmlTemplates import css, bot_template, user_template
 from userinput import UserInput
 
 def main():
     load_dotenv()
-    ui = UserInput()
-
-    st.set_page_config(page_title="Chat with PDFs", page_icon=":books:")
+    st.set_page_config(page_title="Chat with PDFs", page_icon="📚")
     st.write(css, unsafe_allow_html=True)
-    st.header("Chat with multiple PDFs :books:")
+    st.header("Chat with multiple PDFs 📚")
+
+    ui = UserInput()
+    data = Data()
 
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
@@ -23,53 +25,53 @@ def main():
     if user_question and 'conversation' in st.session_state:
         ui.handle_userinput(user_question)
 
-   
     with st.sidebar:
-        st.subheader("Provided Documents")
+        st.subheader("Upload PDFs")
         pdf_docs = st.file_uploader("Upload your PDFs here", type="pdf", accept_multiple_files=True)
 
         if st.button("Clear History"):
-             st.session_state.chat_history = []
+            st.session_state.chat_history = []
+            st.session_state.conversation = None
+            st.success("Chat history cleared.")
 
         if pdf_docs:
+            # Save all uploaded PDFs temporarily
             temp_files = []
             for i, pdf in enumerate(pdf_docs):
                 temp_path = f"temp_{i}.pdf"
                 with open(temp_path, "wb") as f:
                     f.write(pdf.read())
                 temp_files.append(temp_path)
-        
-        if st.button("Process"):
-            with st.spinner("Processing..."):
-                # Get text from PDFs
-                text = Text()
-                raw_text = ""
-                for path in temp_files:
-                  raw_text += text.get_pdf_text(path) + "\n"
 
-                # Split text into chunks
-                chunk = Chunks()
-                text_chunks = chunk.get_text_chunks(raw_text)
+            if st.button("Process"):
+                with st.spinner("Processing PDFs..."):
 
-                # Vectorstore
-                def chroma_db_exists(path: str = "./chroma_db") -> bool:
-                    return os.path.exists(os.path.join(path, "chroma-collections.parquet"))
-                
-                vs = Vectorstore()
+                    # Step 1: Extract and combine all content
+                    combined_text = ""
+                    all_image_paths = []
 
-                if chroma_db_exists():
-                    vectorstore = vs.fetch_vectorstore()
-                else:
-                    vectorstore = vs.create_vectorstore(text_chunks)
+                    if os.path.exists("extracted_images"):
+                        shutil.rmtree("extracted_images")
 
-                # Create conversation chain
-                chain = Chain()
-                st.session_state.conversation = chain.get_conversation_chain(vectorstore)
+                    for path in temp_files:
+                        content, image_paths = data.extract_all_content(path)
+                        combined_text += content + "\n" + "-" * 80 + "\n"
+                        all_image_paths.extend(image_paths)
 
-                # Reset chat history when new docs are uploaded
-                st.session_state.chat_history = []
+                    # Step 2: Chunk the content
+                    chunker = Chunks()
+                    chunks = chunker.get_text_chunks(combined_text)
 
-        #ui.get_conversation_history()
+                    # Step 3: Vectorstore creation/loading
+                    vs = Vectorstore()
+                    vectorstore = vs.create_vectorstore(chunks)
 
-if __name__ == '__main__':
+                    # Step 4: Build the chain
+                    chain = Chain()
+                    st.session_state.conversation = chain.get_conversation_chain(vectorstore)
+                    st.session_state.chat_history = []
+                    st.success("PDFs processed successfully!")
+
+
+if __name__ == "__main__":
     main()
