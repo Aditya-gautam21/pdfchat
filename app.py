@@ -8,6 +8,7 @@ from data import Data
 from chain import Chain
 from htmlTemplates import css, bot_template, user_template
 from userinput import UserInput
+from langchain.schema import Document
 
 def main():
     load_dotenv()
@@ -15,6 +16,7 @@ def main():
     st.write(css, unsafe_allow_html=True)
     st.header("Chat with multiple PDFs 📚")
 
+    vs = Vectorstore()
     ui = UserInput()
     data = Data()
 
@@ -28,12 +30,6 @@ def main():
     with st.sidebar:
         st.subheader("Upload PDFs")
         pdf_docs = st.file_uploader("Upload your PDFs here", type="pdf", accept_multiple_files=True)
-
-        if st.button("Clear History"):
-            st.session_state.chat_history = []
-            st.session_state.conversation = None
-            st.success("Chat history cleared.")
-
         if pdf_docs:
             # Save all uploaded PDFs temporarily
             temp_files = []
@@ -45,32 +41,37 @@ def main():
 
             if st.button("Process"):
                 with st.spinner("Processing PDFs..."):
-
-                    # Step 1: Extract and combine all content
-                    combined_text = ""
+                    # Step 2: Create document objects with metadata
+                    documents = []
                     all_image_paths = []
 
                     if os.path.exists("extracted_images"):
                         shutil.rmtree("extracted_images")
 
-                    for path in temp_files:
-                        content, image_paths = data.extract_all_content(path)
-                        combined_text += content + "\n" + "-" * 80 + "\n"
-                        all_image_paths.extend(image_paths)
+                    all_documents = []
+                    all_image_paths = []
 
-                    # Step 2: Chunk the content
-                    chunker = Chunks()
-                    chunks = chunker.get_text_chunks(combined_text)
+                    for file in temp_files:
+                        docs, images = data.extract_all_content(file)  
+                        all_documents.extend(docs)                     
+                        all_image_paths.extend(images)                 
 
-                    # Step 3: Vectorstore creation/loading
-                    vs = Vectorstore()
-                    vectorstore = vs.create_vectorstore(chunks)
+                    # Step 3: Pass to vectorstore (it will chunk internally)
+                    vectorstore = vs.create_vectorstore(documents)
 
                     # Step 4: Build the chain
                     chain = Chain()
                     st.session_state.conversation = chain.get_conversation_chain(vectorstore)
                     st.session_state.chat_history = []
                     st.success("PDFs processed successfully!")
+
+                    if st.button("Clear History"):
+                        st.session_state.chat_history = []
+                        st.session_state.conversation = None
+                        st.success("Chat history cleared.")
+
+                    if st.button("🧹 Clear all previous documents"):
+                        vs.clear_vectorstore()
 
 
 if __name__ == "__main__":

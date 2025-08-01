@@ -10,7 +10,9 @@ from prompt import Prompt
 
 class Chain:
     def get_conversation_chain(self, vectorstore):
-        llm = OllamaLLM(model="mistral")
+        llm = OllamaLLM(model="mistral:instruct", 
+                        temperature=0.5,
+                        streaming=True)
 
         chat_history = StreamlitChatMessageHistory()
 
@@ -27,15 +29,14 @@ class Chain:
 
         qa_chain = load_qa_chain(
             llm=llm,
-            chain_type="refine",
-            question_prompt=question_prompt,   
-            refine_prompt=refine_prompt,
-            document_variable_name="context"
+            chain_type="map_reduce",
+            question_prompt=question_prompt
+            #refine_prompt=refine_prompt
         )
 
         # Conversational RAG chain
         conversation_chain = ConversationalRetrievalChain(
-                retriever=vectorstore.as_retriever(search_kwargs={"k": 2}),
+                retriever=vectorstore.as_retriever(search_kwargs={"k": 4}),
                 memory=memory,
                 question_generator=question_generator,
                 combine_docs_chain=qa_chain,

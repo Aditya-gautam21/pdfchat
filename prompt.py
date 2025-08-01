@@ -7,7 +7,7 @@ class Prompt:
         question_generator_prompt = PromptTemplate(
             input_variables=["question", "chat_history"],
             template="""
-            Given the chat history and a follow-up question, rephrase the follow-up into a standalone question.Only answer the question in reference to the provided document and understand that any question that is asked is in reference to the pdf.
+            Given the chat history and a follow-up question, rephrase the follow-up into a standalone question.Only answer the question in reference to the provided document and understand that any question that is asked is in reference to the pdf.If the context is empty or irrelevant, say "The document does not provide relevant information."
 
             Chat history:
             {chat_history}
@@ -24,7 +24,7 @@ class Prompt:
         question_prompt = PromptTemplate(
             input_variables=["context", "question"],
             template="""
-            Use the following context to answer the question clearly and directly but do not make it too short or too long.Only answer the question in reference to the provided document and understand that any question that is asked is in reference to the pdf.
+            Use the following context to answer the question clearly and directly but do not make it too short or too long.Only answer the question in reference to the provided document and understand that any question that is asked is in reference to the pdf.If the context is empty or irrelevant, say "The document does not provide relevant information."
 
             Context:
             {context}
@@ -39,7 +39,7 @@ class Prompt:
         refine_prompt = PromptTemplate(
             input_variables=["context", "question", "existing_answer"],
             template="""
-            Improve the existing answer using the additional context below if necessary and only return the answer.Only answer the question in reference to the provided document and understand that any question that is asked is in reference to the pdf.
+            Improve the existing answer using the additional context below if necessary and only return the answer.Only answer the question in reference to the provided document and understand that any question that is asked is in reference to the pdf.If the context is empty or irrelevant, say "The document does not provide relevant information."
 
             Context:
             {context}

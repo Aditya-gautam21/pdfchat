@@ -1,8 +1,9 @@
 import os
+import shutil
 from langchain_community.vectorstores import Chroma
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
-from embeddings import LocalHFEmbedder
+from embeddings import LocalHFEmbedder  # your custom embedding class
 
 class Vectorstore:
     def __init__(self, persist_directory: str = "./chroma_db"):
@@ -13,27 +14,48 @@ class Vectorstore:
     def chroma_db_exists(self) -> bool:
         return os.path.exists(os.path.join(self.persist_directory, "chroma-collections.parquet"))
 
-    def create_vectorstore(self, documents: list[Document]):
+    def clear_vectorstore(self):
         if self.chroma_db_exists():
-            print("✅ Existing vectorstore found. Loading...")
-            return self.fetch_vectorstore()
+            try:
+                # Try loading and deleting all references first
+                vectorstore = self.fetch_vectorstore()
+                del vectorstore  # Remove the object so SQLite releases the lock
 
-        print("🛠️ Creating new vectorstore...")
+                import gc
+                gc.collect()  # Force garbage collection to close DB connections
 
-        # Optional re-chunking (skip if already chunked)
-        splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50)
-        chunks = splitter.split_documents(documents)
+                # Wait briefly to ensure file handles are released
+                import time
+                time.sleep(1)
 
-        vectorstore = Chroma.from_documents(
-            documents=chunks,
-            embedding=self.embeddings,
-            persist_directory=self.persist_directory,
-            collection_name=self.collection_name
-        )
+                shutil.rmtree(self.persist_directory)
+                print("🧹 Cleared existing vectorstore.")
+            except Exception as e:
+                print(f"❌ Error clearing vectorstore: {e}")
+        else:
+            print("ℹ️ No vectorstore to clear.")
 
-        vectorstore.persist()
+
+    def create_vectorstore(self, documents: list[Document]):
+    # Filter out empty documents
+        documents = [doc for doc in documents if doc.page_content and doc.page_content.strip()]
+        if not documents:
+            raise ValueError("No valid documents with content to index.")
+
+        if self.chroma_db_exists():
+            vectorstore = self.fetch_vectorstore()
+            vectorstore.add_documents(documents)
+        else:
+            vectorstore = Chroma.from_documents(
+                documents=documents,
+                embedding=self.embeddings,
+                persist_directory=self.persist_directory,
+                collection_name=self.collection_name
+            )
+            vectorstore.persist()
         return vectorstore
 
+    
     def fetch_vectorstore(self):
         return Chroma(
             persist_directory=self.persist_directory,
