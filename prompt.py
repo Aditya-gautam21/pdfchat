@@ -3,54 +3,68 @@ from langchain.prompts import PromptTemplate
 class Prompt:
     @staticmethod
     def provide_prompt():
-        # Question generator prompt (ONLY 'question')
+        # Question generator prompt
         question_generator_prompt = PromptTemplate(
             input_variables=["question", "chat_history"],
             template="""
-            Given the chat history and a follow-up question, rephrase the follow-up into a standalone question.Only answer the question in reference to the provided document and understand that any question that is asked is in reference to the pdf.If the context is empty or irrelevant, say "The document does not provide relevant information."
+Given the chat history and a follow-up question, rephrase the follow-up into a standalone question.
+The question should be clear and contain enough context to be understood independently.
 
-            Chat history:
-            {chat_history}
+Chat history:
+{chat_history}
 
-            Follow-up question:
-            {question}
+Follow-up question:
+{question}
 
-            Standalone question:
-            """
-            )
+Standalone question:
+"""
+        )
 
-
-        # Initial answering prompt (NEEDS 'context' + 'question')
+        # CRITICAL: Much more restrictive prompt
         question_prompt = PromptTemplate(
             input_variables=["context", "question"],
             template="""
-            Use the following context to answer the question clearly and directly but do not make it too short or too long.Only answer the question in reference to the provided document and understand that any question that is asked is in reference to the pdf.If the context is empty or irrelevant, say "The document does not provide relevant information."
+You are a PDF document assistant. You must ONLY answer questions using information that is explicitly stated in the provided context below.
 
-            Context:
-            {context}
+STRICT RULES - YOU MUST FOLLOW THESE:
+1. If the context does not contain information to answer the question, respond EXACTLY: "I cannot find information about this in the provided PDF documents."
+2. NEVER use external knowledge or make assumptions
+3. NEVER generate information that is not explicitly stated in the context
+4. Quote specific text from the context when possible
+5. If you're uncertain, say "I cannot find clear information about this in the PDF"
+6. Only reference what is directly written in the context below
 
-            Question:
-            {question}
+Context from PDF documents:
+{context}
 
-            Answer:"""
-            )
+Question: {question}
 
-        # Refine prompt (NEEDS 'context' + 'question' + 'existing_answer')
+Answer (using ONLY the context above - no external knowledge):
+"""
+        )
+
+        # More restrictive refine prompt
         refine_prompt = PromptTemplate(
             input_variables=["context", "question", "existing_answer"],
             template="""
-            Improve the existing answer using the additional context below if necessary and only return the answer.Only answer the question in reference to the provided document and understand that any question that is asked is in reference to the pdf.If the context is empty or irrelevant, say "The document does not provide relevant information."
+You are improving an answer using ONLY the additional context provided below.
 
-            Context:
-            {context}
+STRICT RULES:
+1. Only use information explicitly stated in the additional context
+2. If the additional context doesn't help answer the question, keep the existing answer
+3. Never add external knowledge or assumptions
+4. Only reference what is directly written in the contexts
 
-            Question:
-            {question}
+Additional Context:
+{context}
 
-            Existing Answer:
-            {existing_answer}
+Question: {question}
 
-            Improved Answer:"""
-            )
+Current Answer:
+{existing_answer}
+
+Improved Answer (using ONLY the provided contexts):
+"""
+        )
 
         return question_generator_prompt, question_prompt, refine_prompt
