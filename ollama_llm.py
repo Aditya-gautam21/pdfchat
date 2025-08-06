@@ -4,9 +4,9 @@ from typing import Optional, List, Any
 from langchain_core.language_models.llms import LLM
 
 class OllamaLLM(LLM):
-    model: str = "mistral:latest"
+    model: str = "phi3:3.8b"
     base_url: str = "http://localhost:11434"
-    temperature: float = 0.2
+    temperature: float = 0.0 
 
     def _call(self, prompt: str, stop: Optional[List[str]] = None, **kwargs: Any) -> str:
         try:
@@ -22,11 +22,15 @@ class OllamaLLM(LLM):
                     "prompt": prompt,
                     "stream": True,
                     "options": {
-                        "temperature": self.temperature
+                        "temperature": self.temperature,
+                        "top_p": 0.1,  # Very focused for table data
+                        "top_k": 10,   # Limited choices for structured content
+                        "repeat_penalty": 1.1,
+                        "num_predict": 1024  # Longer responses for table data
                     }
                 },
                 stream=True,
-                timeout=60
+                timeout=90  # Longer timeout for complex table processing
             )
             response.raise_for_status()
             
